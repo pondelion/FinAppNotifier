@@ -1,0 +1,40 @@
+service: sqs
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: ap-northeast-1
+  environment:
+    SLACK_WEBHOOK_URL: ${env:SLACK_WEBHOOK_URL}
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    usePipenv: true 
+    dockerizePip: non-linux
+    slim: true
+    zip: true
+
+functions:
+  sqs-message-handle:
+    handler: handler.handle_sqs_message
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - finapp
+              - Arn
+
+resources:
+  Resources:
+    finapp:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "finapp"
+
+package:
+  exclude:
+    - node_modules
+    - package-lock.json

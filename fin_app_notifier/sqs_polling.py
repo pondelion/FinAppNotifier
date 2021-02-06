@@ -1,11 +1,52 @@
 from enum import Enum
+from typing import Dict, Union
+from dataclasses import dataclass
+import json
 
 
 class SQSQueueName(Enum):
+    DEFAULT = 'finapp'
 
-    TEST = 'finapp_test'
-    PREDICTION_RESULT = 'finapp_prediction_result'
-    STOP_LOW_HIGH = 'finapp_stop_low_high'
+
+class Target(Enum):
+    SLACK = 'slack'
+    TWITTER = 'twitter'
+
+
+@dataclass
+class SlackMessage:
+    target: Target = Target.SLACK
+    channel: str
+    message: str
+    group_id: str
+    media_url: str = None
+
+    def to_json(self):
+        data = {
+            'target': self.target.value,
+            'channel': self.channel,
+            'message': self.message,
+        }
+        if self.media_url is not None:
+            data['media_url'] = self.media_url
+        return data
+
+
+@dataclass
+class TwitterMessage:
+    target: Target = Target.TWITTER
+    message: str
+    group_id: str
+    media_url: str = None
+
+    def to_json(self):
+        data = {
+            'target': self.target.value,
+            'message': self.message,
+        }
+        if self.media_url is not None:
+            data['media_url'] = self.media_url
+        return data
 
 
 class SQSPolling:
@@ -18,14 +59,14 @@ class SQSPolling:
 
     def push_message(
         self,
-        queue_name: SQSQueueName,
-        message: str,
-        group: str,
+        message: Union[SlackMessage, TwitterMessage],
+        queue_name: SQSQueueName = SQSQueueName.DEFAULT,
     ):
         queue_url = self._sqs_clint.get_queue_url(QueueName=queue_name.value)
+        msg_json = message.to_json()
         res = self._sqs_clint.send_message(
             QueueUrl=queue_url["QueueUrl"],
-            MessageBody=message,
-            MessageGroupId=group
+            MessageBody=json.dumps(msg_json),
+            MessageGroupId=message.group_id
         )
         return res
